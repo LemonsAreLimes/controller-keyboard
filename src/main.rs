@@ -2,10 +2,12 @@ extern crate hidapi;
 
 use hidapi::HidApi;
 use std::{thread, time};
+use enigo::*;
+use enigo::Key::{Backspace, Return, Space, LeftArrow, RightArrow};
 
 fn main() {
 
-    //check all devices
+    //check all devices, i didnt make this part just the charicter selection stuff idk how to use this api
     match HidApi::new() {
         Ok(api) => {
             for device in api.devices() {
@@ -19,13 +21,15 @@ fn main() {
                     let input = api.open(VID, PID).unwrap();
                     
                     //initalize varibles and stuff
-                    let millis = time::Duration::from_millis(10);
-                    let mut prev_action:bool = false;
+                    let millis = time::Duration::from_millis(1);
+                    let mut prev_action: bool = false;
                     
                     let mut mode: &str = "text";
                     let mut glob_charset: [char; 4] = ['`','`','`','`'];
-                    let mut curr_char: char = ' ';
-                    let mut text: String = String::from("");
+                    let mut curr_char: String = "".to_string();
+
+                    //initalize enigo (sending keys)
+                    let mut enigo = Enigo::new();
 
                     loop {
                         //sleep bc too fast for console
@@ -35,8 +39,6 @@ fn main() {
                         print!("{}c",27 as char);
 
                         //print stuff
-                        println!("text: {}", text);
-                        println!("--------------------------------------------------------------------");
                         println!("current letter: {}", curr_char);
                         println!("{} mode", mode);
                         if glob_charset != ['`','`','`','`'] {println!("{:?}", glob_charset);}
@@ -64,13 +66,19 @@ fn main() {
 
                         //get char
                         let letter = get_char(stick_right_x, stick_right_y, glob_charset);
-                        if letter != '`' {curr_char = letter;}
+                        if letter != "`" {curr_char = letter;}
 
                         //triggers: add char / backspace
                         if prev_action == false { //prevents uncontrolled deletion 
-                            if triggers == 8        {text.push(curr_char);  prev_action = true;}
-                            else if triggers == 4   {text.pop();            prev_action = true;}
+                            if      triggers == 4   {enigo.key_click(Backspace);  prev_action = true;}
+                            else if triggers == 8   {enigo.key_sequence(&curr_char);  prev_action = true;}
                         } else {prev_action = false;}
+
+                        //d pad navigation
+                        if buttons == 0         {enigo.key_click(Return);}
+                        if buttons == 4         {enigo.key_click(Space);}
+                        if buttons == 2         {enigo.key_click(RightArrow);} 
+                        if buttons == 6         {enigo.key_click(LeftArrow);}
 
                         //mode switching
                         if buttons == 40        {mode = "text";     glob_charset=['`','`','`','`'];}
@@ -91,7 +99,7 @@ fn main() {
     }
 }
 
-fn get_char(x:u8, y:u8, charset: [char; 4]) -> char {
+fn get_char(x:u8, y:u8, charset: [char; 4]) -> String {
 
     //N     x: 0-255,   y: 0-64
     //E     x: 192-255  y: 64-192
@@ -100,18 +108,18 @@ fn get_char(x:u8, y:u8, charset: [char; 4]) -> char {
 
 
     if in_range(x, 0, 255) && in_range(y, 0, 64) {                      //N
-        return charset[0];
+        return String::from(charset[0]);
 
     } else if in_range(x, 192, 255) && in_range(y, 64, 192) {           //E
-        return charset[1];
+        return String::from(charset[1]);
 
     } else if in_range(x, 0, 255) && in_range(y, 192, 255) {            //S
-        return charset[2];
+        return String::from(charset[2]);
 
     } else if in_range(x, 0, 64) && in_range(y, 64, 192) {              //W
-        return charset[3];
+        return String::from(charset[3]);
     } else {
-        return '`';
+        return String::from('`');
     }
 }
 
