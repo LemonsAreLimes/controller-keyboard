@@ -20,7 +20,8 @@ fn main() {
                     
                     //initalize varibles and stuff
                     let millis = time::Duration::from_millis(10);
-
+                    let mut prev_action:bool = false;
+                    
                     let mut mode: &str = "text";
                     let mut glob_charset: [char; 4] = ['`','`','`','`'];
                     let mut curr_char: char = ' ';
@@ -34,8 +35,9 @@ fn main() {
                         print!("{}c",27 as char);
 
                         //print stuff
-                        println!("text: {}, current letter: {}", text, curr_char);
+                        println!("text: {}", text);
                         println!("--------------------------------------------------------------------");
+                        println!("current letter: {}", curr_char);
                         println!("{} mode", mode);
                         if glob_charset != ['`','`','`','`'] {println!("{:?}", glob_charset);}
                         
@@ -57,7 +59,7 @@ fn main() {
                         if mode == "dev" {println!("buttons: {}  |  triggers: {}", buttons, triggers);}
 
                         //get charset
-                        let charset = get_charset(stick_left_x, stick_left_y);
+                        let charset = get_charset(stick_left_x, stick_left_y, mode);
                         if charset != ['`','`','`','`'] {glob_charset = charset;}
 
                         //get char
@@ -65,14 +67,16 @@ fn main() {
                         if letter != '`' {curr_char = letter;}
 
                         //triggers: add char / backspace
-                        if triggers == 8 {text.push(curr_char);}
-                        else if triggers == 4 {text.pop();}
+                        if prev_action == false { //prevents uncontrolled deletion 
+                            if triggers == 8        {text.push(curr_char);  prev_action = true;}
+                            else if triggers == 4   {text.pop();            prev_action = true;}
+                        } else {prev_action = false;}
 
                         //mode switching
-                        if buttons == 40 {mode = "text"}
-                        else if buttons == 72 {mode = "numbers"}
-                        else if buttons == 136 {mode = "emoji"}
-                        else if buttons == 24 {mode = "dev"}
+                        if buttons == 40        {mode = "text";     glob_charset=['`','`','`','`'];}
+                        else if buttons == 72   {mode = "numbers";  glob_charset=['`','`','`','`'];}
+                        else if buttons == 136  {mode = "emoji";    glob_charset=['`','`','`','`'];}
+                        else if buttons == 24   {mode = "dev";      glob_charset=['`','`','`','`'];}
                  
 
 
@@ -111,7 +115,7 @@ fn get_char(x:u8, y:u8, charset: [char; 4]) -> char {
     }
 }
 
-fn get_charset(x:u8, y:u8) -> [char; 4] {
+fn get_charset(x:u8, y:u8, mode: &str) -> [char; 4] {
 
     //N     x: 96-162,  y: 0-96
     //NE    x: 162-255, y: 0-96
@@ -123,32 +127,54 @@ fn get_charset(x:u8, y:u8) -> [char; 4] {
     //NW    x: 0-96,    y: 0-96
 
     if in_range(x, 96, 162) && in_range(y, 0, 96) {                 //N
-        return ['a','b','c','d'];
+        if mode == "text" || mode == "dev"  {return ['a','b','c','d']}
+        else if mode == "numbers"           {return ['0','1','2','3']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
     } else if in_range(x, 162, 255) && in_range(y, 0, 96) {         //NE
-        return ['e','f','g','h'];
+        if mode == "text" || mode == "dev"  {return ['e','f','g','h']}
+        else if mode == "numbers"           {return ['4','5','6','7']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
-    } else if in_range(x, 162, 255) && in_range(y, 96, 162) {       //E
-        return ['i','j','k','l'];
+    } else if in_range(x, 162, 255) && in_range(y, 96, 162) {       //E    
+        if mode == "text" || mode == "dev"  {return ['i','j','k','l']}
+        else if mode == "numbers"           {return ['8','9','@','#']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
     } else if in_range(x, 162, 255) && in_range(y, 162, 255) {      //SE
-        return ['m','n','o','p'];
+        if mode == "text" || mode == "dev"  {return ['m','n','o','p']}
+        else if mode == "numbers"           {return ['$','%','^','&']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
     } else if in_range(x, 96, 162) && in_range(y, 162, 255) {       //S
-        return ['q','r','s','t'];
+        if mode == "text" || mode == "dev"  {return ['q','r','s','t']}
+        else if mode == "numbers"           {return ['(',')','[',']']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
     } else if in_range(x, 0, 96) && in_range(y, 162, 255) {         //SW
-        return ['u','v','w','x'];
+        if mode == "text" || mode == "dev"  {return ['u','v','w','x']}
+        else if mode == "numbers"           {return ['{','}','<','>']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
     }else if in_range(x, 0, 96) && in_range(y, 96, 162) {           //W
-        return ['y','z','.',','];
+        if mode == "text" || mode == "dev"  {return ['y','z','.',',']}
+        else if mode == "numbers"           {return ['+','-','*','/']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
     }else if in_range(x, 0, 96) && in_range(y, 0, 96) {             //NW
-        return ['!','?','_','#'];
+        if mode == "text" || mode == "dev"  {return ['!','?','_',' ']}
+        else if mode == "numbers"           {return ['=',';',':','~']}
+        else if mode == "emoji"             {return ['n','n','n','n']}
+        else                                {return ['`','`','`','`']}
 
-    } else {
-        return ['`','`','`','`'];
-    }
+    } else {return ['`','`','`','`'];}
 }
 fn in_range(num: u8, start:u8, end:u8) -> bool {
 
