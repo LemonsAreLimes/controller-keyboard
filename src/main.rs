@@ -3,17 +3,20 @@ extern crate hidapi;
 use hidapi::HidApi;
 use std::{thread, time};
 use enigo::*;
-use enigo::Key::{Backspace, Return, Space, LeftArrow, RightArrow};
+use enigo::Key::{Backspace, Return, Space, LeftArrow, RightArrow, PageUp, PageDown};
 
 fn main() {
+    println!("searching for devices...");
 
     //check all devices, i didnt make this part just the charicter selection stuff idk how to use this api
     match HidApi::new() {
         Ok(api) => {
             for device in api.devices() {
+                println!("{:#?}", device);
 
                 //get devices with sony
                 if device.manufacturer_string.as_ref().unwrap() == "Sony Computer Entertainment" {
+                    println!("controller connected!");
 
                     //initialize the controller
                     let VID = device.vendor_id;
@@ -38,11 +41,8 @@ fn main() {
                         //clear screen
                         print!("{}c",27 as char);
 
-                        //print stuff
-                        println!("current letter: {}", curr_char);
+                        //print mode
                         println!("{} mode", mode);
-                        if glob_charset != ['`','`','`','`'] {println!("{:?}", glob_charset);}
-                        
 
                         // Read data from device
                         let mut buf = [0u8; 10];
@@ -57,41 +57,82 @@ fn main() {
                         let buttons = buf[7];
                         let triggers = buf[8];
 
-                        //check for dev mode
-                        if mode == "dev" {println!("buttons: {}  |  triggers: {}", buttons, triggers);}
-
-                        //get charset
-                        let charset = get_charset(stick_left_x, stick_left_y, mode);
-                        if charset != ['`','`','`','`'] {glob_charset = charset;}
-
-                        //get char
-                        let letter = get_char(stick_right_x, stick_right_y, glob_charset);
-                        if letter != "`" {curr_char = letter;}
-
-                        //triggers: add char / backspace
-                        if prev_action == false { //prevents uncontrolled deletion 
-                            if      triggers == 4   {enigo.key_click(Backspace);  prev_action = true;}
-                            else if triggers == 8   {enigo.key_sequence(&curr_char);  prev_action = true;}
-                        } else {prev_action = false;}
-
-                        //d pad navigation
-                        if buttons == 0         {enigo.key_click(Return);}
-                        if buttons == 4         {enigo.key_click(Space);}
-                        if buttons == 2         {enigo.key_click(RightArrow);} 
-                        if buttons == 6         {enigo.key_click(LeftArrow);}
-
                         //mode switching
                         if buttons == 40        {mode = "text";     glob_charset=['`','`','`','`'];}
                         else if buttons == 72   {mode = "numbers";  glob_charset=['`','`','`','`'];}
-                        else if buttons == 136  {mode = "emoji";    glob_charset=['`','`','`','`'];}
-                        else if buttons == 24   {mode = "dev";      glob_charset=['`','`','`','`'];}
-                 
+                        else if buttons == 136  {mode = "cursor"; enigo.mouse_move_to(0,0);}
+                        else if buttons == 24   {mode = "dev";}
 
+                        //check for mode
+                        if mode == "dev" {println!("buttons: {}  |  triggers: {}", buttons, triggers);}
+                        else if mode == "text" || mode == "numbers" {
 
+                            //print charset and current char
+                            println!("current letter: {}", curr_char);
+                            if glob_charset != ['`','`','`','`'] {println!("{:?}", glob_charset);}
+
+                            //get charset
+                            let charset = get_charset(stick_left_x, stick_left_y, mode);
+                            if charset != ['`','`','`','`'] {glob_charset = charset;}
+
+                            //get char
+                            let letter = get_char(stick_right_x, stick_right_y, glob_charset);
+                            if letter != "`" {curr_char = letter;}
+
+                            //triggers: add char / backspace
+                            if prev_action == false { //prevents uncontrolled deletion 
+                                if      triggers == 4   {enigo.key_click(Backspace);  prev_action = true;}
+                                else if triggers == 8   {enigo.key_sequence(&curr_char);  prev_action = true;}
+                            } else {prev_action = false;}
+
+                            //d pad navigation
+                            if buttons == 0         {enigo.key_click(Return);}
+                            else if buttons == 4    {enigo.key_click(Space);}
+                            else if buttons == 2    {enigo.key_click(RightArrow);} 
+                            else if buttons == 6    {enigo.key_click(LeftArrow);}
+
+                        } // text / numbers mode
+                        
+                        else if mode == "cursor" {
+                                
+                            //convert to useable data
+                            let slow: i32 = 10;
+                            let fast: i32 = 30;
+
+                            let mut x: i32 = 0;
+                            let mut y: i32 = 0;
+
+                            
+                            //left (fast) stick
+                            if stick_left_x > 150      {x = fast}
+                            else if stick_left_x < 110 {x = -fast}
+                            else if stick_left_y > 150 {y = fast}
+                            else if stick_left_y < 110 {y = -fast}
+
+                            //right (slow) stick
+                            else if stick_right_x > 150 {x = slow}
+                            else if stick_right_x < 110 {x = -slow}
+                            else if stick_right_y > 150 {y = slow}
+                            else if stick_right_y < 110 {y = -slow}
+
+                            else {x = 0; y = 0;}
+
+                            enigo.mouse_move_relative(x, y);
+
+                            //triggers
+                            if      triggers == 4   {enigo.mouse_click(MouseButton::Right);}
+                            else if triggers == 8   {enigo.mouse_click(MouseButton::Left);}
+
+                            //d pad navigation
+                            if buttons == 0         {enigo.key_click(PageUp);}
+                            else if buttons == 4    {enigo.key_click(PageDown);}
+                            else if buttons == 2    {enigo.key_click(RightArrow);} 
+                            else if buttons == 6    {enigo.key_click(LeftArrow);}
+
+                        } //mouse mode
                     } //loop
-
-                }
-            }
+                } //if controller block
+            } println!("could not find ps4 controller!");
         },
         Err(e) => {
             eprintln!("Error: {}", e);
